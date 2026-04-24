@@ -16,7 +16,7 @@
 完整部署和配置说明见：
 
 ```text
-docs/SETUP_GUIDE.md
+SETUP_GUIDE.md
 ```
 
 ## 快速开始
