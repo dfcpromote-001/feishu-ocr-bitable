@@ -33,6 +33,26 @@ def test_extract_image_key_from_post_message() -> None:
     assert extract_image_keys_from_message_content("post", content) == ["example_image_key"]
 
 
+def test_extract_multiple_image_keys_from_post_message() -> None:
+    content = json.dumps(
+        {
+            "title": "",
+            "content": [
+                [
+                    {"tag": "img", "image_key": "img_1"},
+                    {"tag": "img", "image_key": "img_2"},
+                ],
+                [
+                    {"tag": "text", "text": "done"},
+                    {"tag": "img", "image_key": "img_3"},
+                ],
+            ],
+        }
+    )
+
+    assert extract_image_keys_from_message_content("post", content) == ["img_1", "img_2", "img_3"]
+
+
 def test_extract_image_key_returns_empty_for_text_message() -> None:
     content = json.dumps({"text": "hello"})
 

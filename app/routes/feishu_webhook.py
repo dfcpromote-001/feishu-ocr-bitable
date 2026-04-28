@@ -71,22 +71,24 @@ async def feishu_webhook(request: Request, payload: FeishuWebhookPayload) -> dic
     if not image_keys:
         return {"ok": True, "ignored": True, "reason": "message without supported image"}
 
-    image_key = image_keys[0]
     if not message.message_id:
         raise HTTPException(status_code=400, detail="missing message_id or image_key")
     logger.info(
-        "image message accepted: message_id=%s chat_id=%s image_key=%s",
+        "image message accepted: message_id=%s chat_id=%s image_count=%s",
         message.message_id,
         message.chat_id,
-        image_key,
+        len(image_keys),
     )
 
-    # 执行营业截图导入（通过配置选择 mock/real OCR）
-    import_result = await revenue_import_service.import_from_feishu_message(
-        message_id=message.message_id,
-        image_key=image_key,
-        use_mock_ocr=settings.use_mock_ocr,
-    )
+    summaries = []
+    for image_key in image_keys:
+        # 执行营业截图导入（通过配置选择 mock/real OCR）
+        import_result = await revenue_import_service.import_from_feishu_message(
+            message_id=message.message_id,
+            image_key=image_key,
+            use_mock_ocr=settings.use_mock_ocr,
+        )
+        summaries.append({"image_key": image_key, "summary": import_result.model_dump()})
 
     # 扩展点：后续可基于 import_result 回传飞书消息回执
     await _send_message_receipt_extension(payload)
@@ -94,7 +96,7 @@ async def feishu_webhook(request: Request, payload: FeishuWebhookPayload) -> dic
     return {
         "ok": True,
         "accepted": True,
-        "message_type": "image",
-        "image_key": image_key,
-        "summary": import_result.model_dump(),
+        "message_type": message.message_type,
+        "image_count": len(image_keys),
+        "summaries": summaries,
     }

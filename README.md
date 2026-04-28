@@ -16,14 +16,14 @@
 完整部署和配置说明见：
 
 ```text
-SETUP_GUIDE.md
+docs/SETUP_GUIDE.md
 ```
 
 ## 快速开始
 
 ```bash
 git clone <你的 GitHub 仓库地址>
-cd feishu-ocr-bitable-public
+cd feishu-ocr-bitable
 
 python3 -m venv .venv
 source .venv/bin/activate

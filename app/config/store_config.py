@@ -19,6 +19,77 @@ STORE_CONFIG: dict[str, StoreMeta] = {
     "示例门店X店": StoreMeta(
         store_name="示例门店X店",
         subject="示例科目A",
+        receipt_ratio=0.92,
+    ),
+    "示例门店X": StoreMeta(
+        store_name="示例门店X店",
+        subject="示例科目A",
+        receipt_ratio=0.92,
+    ),
+    "示例门店Y店": StoreMeta(
+        store_name="示例门店Y店",
+        subject="示例科目B",
+        receipt_ratio=0.88,
+    ),
+    "示例门店C店": StoreMeta(
+        store_name="示例门店C-业务类型",
+        subject="示例科目A",
+        receipt_ratio=0.54,
+    ),
+    "示例门店C": StoreMeta(
+        store_name="示例门店C-业务类型",
+        subject="示例科目A",
+        receipt_ratio=0.54,
+    ),
+    "示例门店B店": StoreMeta(
+        store_name="示例门店B-业务类型",
+        subject="示例科目A",
+        receipt_ratio=0.54,
+    ),
+    "示例门店B": StoreMeta(
+        store_name="示例门店B-业务类型",
+        subject="示例科目A",
+        receipt_ratio=0.54,
+    ),
+    "示例门店A店": StoreMeta(
+        store_name="示例门店A-业务类型",
+        subject="示例科目A",
+        receipt_ratio=0.54,
+    ),
+    "示例门店A": StoreMeta(
+        store_name="示例门店A-业务类型",
+        subject="示例科目A",
+        receipt_ratio=0.54,
+    ),
+    "示例门店D店": StoreMeta(
+        store_name="示例门店D-业务类型",
+        subject="示例科目A",
+        receipt_ratio=0.54,
+    ),
+    "示例门店D": StoreMeta(
+        store_name="示例门店D-业务类型",
+        subject="示例科目A",
+        receipt_ratio=0.54,
+    ),
+    "示例门店D别名店": StoreMeta(
+        store_name="示例门店D-业务类型",
+        subject="示例科目A",
+        receipt_ratio=0.54,
+    ),
+    "示例门店D别名": StoreMeta(
+        store_name="示例门店D-业务类型",
+        subject="示例科目A",
+        receipt_ratio=0.54,
+    ),
+    "示例门店E店": StoreMeta(
+        store_name="示例门店E-业务类型",
+        subject="示例科目B",
+        receipt_ratio=1.0,
+    ),
+    "示例门店E": StoreMeta(
+        store_name="示例门店E-业务类型",
+        subject="示例科目B",
+        receipt_ratio=1.0,
     ),
 }
 

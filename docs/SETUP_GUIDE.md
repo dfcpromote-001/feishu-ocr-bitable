@@ -34,7 +34,7 @@
 
 ```bash
 git clone <你的 GitHub 仓库地址>
-cd feishu-ocr-bitable-public
+cd feishu-ocr-bitable
 ```
 
 如果已经拉取过项目，更新代码：

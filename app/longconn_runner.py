@@ -34,6 +34,26 @@ async def _reply_text(message_id: str, text: str) -> None:
         logger.warning("reply message failed: message_id=%s error=%s", message_id, exc)
 
 
+def _build_result_line(result: RevenueImportResult, *, image_index: int | None = None, image_count: int | None = None) -> str:
+    prefix = ""
+    if image_index is not None and image_count is not None:
+        prefix = f"第 {image_index}/{image_count} 张："
+
+    return f"{prefix}成功 {result.success_store_count}，失败 {result.failed_store_count}"
+
+
+def _format_result_errors(result: RevenueImportResult, *, limit: int = 3) -> list[str]:
+    if not result.errors:
+        return []
+
+    lines = []
+    for error in result.errors[:limit]:
+        lines.append(f"错误：{error}")
+    if len(result.errors) > limit:
+        lines.append(f"另有 {len(result.errors) - limit} 条错误，详见日志。")
+    return lines
+
+
 def _build_result_reply(result: RevenueImportResult) -> str:
     created_count = sum(1 for item in result.store_results if item.get("action") == "created")
     updated_count = sum(1 for item in result.store_results if item.get("action") == "updated")
@@ -41,40 +61,95 @@ def _build_result_reply(result: RevenueImportResult) -> str:
 
     lines = [
         "处理完成",
-        f"成功：{result.success_store_count} 家",
-        f"失败：{result.failed_store_count} 家",
+        _build_result_line(result),
     ]
     if created_count or updated_count or skipped_count:
         lines.append(f"新增：{created_count}，更新：{updated_count}，跳过：{skipped_count}")
-    if result.errors:
-        lines.append("错误：" + "；".join(result.errors[:3]))
+    lines.extend(_format_result_errors(result))
     return "\n".join(lines)
 
 
-def _run_import(message_id: str, image_key: str) -> None:
+def _build_multi_image_reply(
+    results: list[tuple[int, RevenueImportResult]],
+    errors: list[tuple[int, str]],
+    *,
+    image_count: int,
+) -> str:
+    total_success = sum(result.success_store_count for _, result in results)
+    total_failed = sum(result.failed_store_count for _, result in results) + len(errors)
+
+    lines = ["全部处理完成"]
+    result_by_index = {index: result for index, result in results}
+    error_by_index = {index: error for index, error in errors}
+    for index in range(1, image_count + 1):
+        result = result_by_index.get(index)
+        if result is not None:
+            lines.append(_build_result_line(result, image_index=index, image_count=image_count))
+            lines.extend(_format_result_errors(result))
+            continue
+        error = error_by_index.get(index)
+        if error is None:
+            continue
+        lines.append(f"第 {index}/{image_count} 张：处理失败")
+        lines.append(f"错误：{error}")
+    lines.append(f"合计：成功 {total_success}，失败 {total_failed}")
+    return "\n".join(lines)
+
+
+def _run_import_images(message_id: str, image_keys: list[str]) -> None:
     async def _task() -> None:
         if service is None:
             logger.error("import service is not initialized")
             return
 
+        image_count = len(image_keys)
         try:
-            await _reply_text(message_id, "收到截图，开始识别并写入多维表。")
-            result = await service.import_from_feishu_message(
-                message_id=message_id,
-                image_key=image_key,
-                use_mock_ocr=app_config.settings.use_mock_ocr,
-            )
-            logger.info(
-                "import finished: success=%s failed=%s records=%s errors=%s",
-                result.success_store_count,
-                result.failed_store_count,
-                len(result.upserted_record_ids),
-                result.errors,
-            )
-            await _reply_text(message_id, _build_result_reply(result))
-        except Exception as exc:
-            logger.exception("import task failed: message_id=%s error=%s", message_id, exc)
-            await _reply_text(message_id, f"处理失败：{exc}")
+            if image_count == 1:
+                await _reply_text(message_id, "收到截图，开始识别并写入多维表。")
+            else:
+                await _reply_text(message_id, f"收到 {image_count} 张截图，开始按顺序识别并写入多维表。")
+
+            results: list[tuple[int, RevenueImportResult]] = []
+            errors: list[tuple[int, str]] = []
+            for index, image_key in enumerate(image_keys, start=1):
+                try:
+                    logger.info(
+                        "import image start: message_id=%s image_index=%s/%s image_key=%s",
+                        message_id,
+                        index,
+                        image_count,
+                        image_key,
+                    )
+                    result = await service.import_from_feishu_message(
+                        message_id=message_id,
+                        image_key=image_key,
+                        use_mock_ocr=app_config.settings.use_mock_ocr,
+                    )
+                    logger.info(
+                        "import image finished: message_id=%s image_index=%s/%s success=%s failed=%s records=%s errors=%s",
+                        message_id,
+                        index,
+                        image_count,
+                        result.success_store_count,
+                        result.failed_store_count,
+                        len(result.upserted_record_ids),
+                        result.errors,
+                    )
+                    results.append((index, result))
+                except Exception as exc:
+                    logger.exception(
+                        "import image failed: message_id=%s image_index=%s/%s error=%s",
+                        message_id,
+                        index,
+                        image_count,
+                        exc,
+                    )
+                    errors.append((index, str(exc)))
+
+            if image_count == 1 and results and not errors:
+                await _reply_text(message_id, _build_result_reply(results[0][1]))
+            else:
+                await _reply_text(message_id, _build_multi_image_reply(results, errors, image_count=image_count))
         finally:
             with _dedup_lock:
                 _processing_messages.discard(message_id)
@@ -103,21 +178,13 @@ def handle_message(data: lark.im.v1.P2ImMessageReceiveV1) -> None:
             logger.info("skip duplicated message: message_id=%s", message.message_id)
             return
 
-        image_key = image_keys[0]
-        if len(image_keys) > 1:
-            logger.info(
-                "message contains multiple images, only first image will be imported: message_id=%s count=%s",
-                message.message_id,
-                len(image_keys),
-            )
-
         logger.info(
-            "receive image message: message_id=%s type=%s image_key=%s",
+            "receive image message: message_id=%s type=%s image_count=%s",
             message.message_id,
             message.message_type,
-            image_key,
+            len(image_keys),
         )
-        _run_import(message.message_id, image_key)
+        _run_import_images(message.message_id, image_keys)
     except Exception as exc:
         logger.exception("handle message failed: %s", str(exc))
 
